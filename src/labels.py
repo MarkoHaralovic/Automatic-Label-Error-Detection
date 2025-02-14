@@ -83,10 +83,16 @@ class Cityscapes:
     ]
 
     num_classes = 19
+    
     trainId2color = {label.train_id: label.color for label in labels if label.ignore_in_eval == False}
     trainId2color[255] = (0,0,0)
-    trainId2name = {label.train_id: label.name for label in labels}
     
+    trainColor2Id = {label.color : label.train_id for label in labels if label.ignore_in_eval == False}
+    trainColor2Id[(0,0,0)] = 255
+    
+    trainId2name = {label.train_id: label.name for label in labels}
+    id2color = { label.id : label.color for label in labels }
+    color2id = { label.color : label.id for label in labels if label.id != -1 }
 
 
 

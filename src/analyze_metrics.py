@@ -111,19 +111,24 @@ def evaluate():
     acc = np.mean(np.argmax(perturbed_y0a_val_pred,axis=-1)==perturbed_y0a_val)
     print(f"Accuracy of model: {100*acc:.1f}%\n")
 
+    if not cfg.VISUALIZE_EVALUATED:
+        return
     # Find the k most probable (according to the meta seg) label errors and push them into a min heap. The label error
     # with the lowest confidence is the first element in the list.
     # k is defined in the config file by cfg.NUM_PRPOSALS
     k = 0
     benchmark_prediction_args = []
     segment_heap = []
-    val_fns = [fn.split("_")[0] for fn in metric_fns[int(cfg.SPLIT_RATIO * inputs_len):]]
+    val_fns = [fn.replace("_metrics.p","") for fn in metric_fns[int(cfg.SPLIT_RATIO * inputs_len):]]
     print("Searching for label errors...")
     for fn in val_fns:
+        
         segments = np.load(os.path.join(cfg.COMPONENTS_DIR, fn + "_components.npy"))
+
         inf_ar = np.asarray(Image.open(os.path.join(cfg.INFERENCE_OUTPUT_DIR, fn + ".png")), dtype="uint8")
         iou_ar = np.zeros_like(segments)
         pos_segments = np.unique(segments[segments >= 0])
+        
         for i, seg_ind in enumerate(pos_segments):
             cls_id = inf_ar[np.abs(segments) == seg_ind][0]
 

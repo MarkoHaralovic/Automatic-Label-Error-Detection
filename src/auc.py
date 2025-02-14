@@ -82,7 +82,7 @@ def load_inputs(img_fn):
 
 
 def main():
-    logging.basicConfig(filename=os.path.join("/home/marco/Automatic-Label-Error-Detection/benchmark_results.log"),
+    logging.basicConfig(filename=os.path.join(cfg.BASE_OUTPUT_DIR, "benchmark_results.log"),
                     format='%(message)s',
                     filemode='w',
                     level=logging.INFO)

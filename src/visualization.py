@@ -27,7 +27,7 @@ def benchmark_vis(iou_ar, fn):
     result[:,:,1] = inf_ar
 
     Image.fromarray(result).save(os.path.join(cfg.BENCHMARK_PROPOSAL_VIS_DIR, fn + "_proposals.png"))
-    
+        
     
 def label_error_vis(fn):
     diff_mask = np.load(os.path.join(cfg.DIFF_DIR, fn + "_diff_map.npy"))
@@ -48,12 +48,12 @@ def label_error_vis(fn):
 
 def proposal_vis(iou, fn, seg_id, cls_id):
     """Visualization of one potential label error in image fn"""
-    inf_mask_suffix = os.listdir(cfg.GT_MASKS_DIR)[0].split(".")[-1]
+    inf_mask_suffix = os.listdir(cfg.PERTURBED_MASKS_DIR)[0].split(".")[-1]
     inf_ar = np.asarray(Image.open(os.path.join(cfg.INFERENCE_OUTPUT_DIR, fn + "." + inf_mask_suffix)), dtype="uint8")
     
-    gt_mask_suffix = os.listdir(cfg.GT_MASKS_DIR)[0].split(".")[-1]
+    gt_mask_suffix = os.listdir(cfg.PERTURBED_MASKS_DIR)[0].split(".")[-1]
     net_input_suffix = os.listdir(cfg.NET_INPUT_DIR)[0].split(".")[-1]
-    gt_mask = np.array(Image.open(os.path.join(cfg.GT_MASKS_DIR, fn + "." + gt_mask_suffix)))
+    gt_mask = np.array(Image.open(os.path.join(cfg.PERTURBED_MASKS_DIR, fn + "." + gt_mask_suffix)))
     net_input = np.array(Image.open(os.path.join(cfg.NET_INPUT_DIR, fn + "." + net_input_suffix)))
     
     Dataset = getattr(labels, cfg.DATASET.capitalize())
@@ -61,32 +61,44 @@ def proposal_vis(iou, fn, seg_id, cls_id):
     trainId2name = Dataset.trainId2name
     num_classes = Dataset.num_classes
 
-    gt_rgb = np.zeros(inf_ar.shape + (3,), dtype="uint8")
-    pred_rgb = np.zeros(inf_ar.shape + (3,), dtype="uint8")
+    if len(inf_ar.shape)==3:
+        rgb = True
+        gt_rgb = np.zeros_like(inf_ar, dtype="uint8") # inf_ar of shape (h,w,3)
+        pred_rgb = np.zeros_like(inf_ar, dtype="uint8") # inf_ar of shape  (h,w,3)
+    elif len(inf_ar.shape)==2:
+        rgb = False
+        gt_rgb = np.zeros(inf_ar.shape + (3,), dtype="uint8") # inf_ar of shape  (h,w)
+        pred_rgb = np.zeros(inf_ar.shape + (3,), dtype="uint8") # inf_ar of shape  (h,w)
+    
     for id in range(num_classes):
-        gt_rgb[gt_mask==id] = trainId2color[id]
-        pred_rgb[inf_ar==id] = trainId2color[id]
+        if rgb: # if RGB GT is sent
+            gt_rgb = gt_mask
+            pred_rgb = inf_ar
+        else:
+            gt_rgb[gt_mask==id] = trainId2color[id]
+            pred_rgb[inf_ar==id] = trainId2color[id]
 
-    rgb_blend_img = np.copy(net_input)
+    rgb_blend_img = np.copy(net_input) 
     components = np.load(os.path.join(cfg.COMPONENTS_DIR, fn + "_components.npy"))
     seg_idx = np.where(np.abs(components)==seg_id)
 
     bbox_0 = (max(np.min(seg_idx[1])-15, 0), max(np.min(seg_idx[0])-15, 0))
     bbox_1 = (min(np.max(seg_idx[1])+15, rgb_blend_img.shape[1]), min(np.max(seg_idx[0])+15, rgb_blend_img.shape[1]))
-
+    
     rgb_blend_img[seg_idx] = 0.4*rgb_blend_img[seg_idx] + 0.6*pred_rgb[seg_idx]
     
     img_shape = rgb_blend_img.shape[0]
 
-    net_input = Image.fromarray(net_input)
-    rgb_blend_img = Image.fromarray(rgb_blend_img)
-    gt_rgb_img = Image.fromarray(gt_rgb)
-    pred_rgb_img = Image.fromarray(pred_rgb)
+    net_input = Image.fromarray(net_input) # (1024, 2048, 3)
+    rgb_blend_img = Image.fromarray(rgb_blend_img) # (1024, 2048, 3)
+    gt_rgb_img = Image.fromarray(gt_rgb) # (1024, 2048, 3)
+    pred_rgb_img = Image.fromarray(pred_rgb)  # (1024, 2048, 3)
     
     font = ImageFont.truetype("arial.ttf", size=int(0.05*img_shape))
 
     draw = ImageDraw.Draw(rgb_blend_img)
     draw.rectangle([bbox_0, bbox_1], outline='red', width=4)
+    
     draw.text((0, 0), "Predicted Label: " + trainId2name[int(cls_id)], fill='red', font=font)
 
     draw = ImageDraw.Draw(net_input)
